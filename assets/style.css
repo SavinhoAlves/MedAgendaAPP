@@ -1,0 +1,121 @@
+body {
+  font-family: 'Inter', Arial, sans-serif;
+  background: #fff;
+  margin: 0;
+  padding: 0;
+}
+
+.header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 48px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  background: #fff;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: #2563eb;
+}
+
+.header-btn {
+  background: #2563eb;
+  color: #fff;
+  padding: 10px 28px;
+  border-radius: 8px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.header-btn:hover {
+  background: #1d4ed8;
+}
+
+.main-title {
+  text-align: center;
+  font-size: 32px;
+  font-weight: bold;
+  margin-top: 40px;
+}
+.main-title .highlight {
+  color: #2563eb;
+}
+
+.subtitle {
+  text-align: center;
+  color: #666;
+  margin-top: 16px;
+  margin-bottom: 32px;
+  font-size: 18px;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 800px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  padding: 40px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 320px;
+}
+
+.card-icon {
+  font-size: 40px;
+  color: #2563eb;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.card-desc {
+  color: #666;
+  text-align: center;
+  font-size: 15px;
+}
+
+.cta-btn {
+  display: block;
+  margin: 48px auto 0 auto;
+  background: #2563eb;
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+  padding: 18px 64px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.10);
+  transition: background 0.2s;
+}
+.cta-btn:hover {
+  background: #1d4ed8;
+}
+
+.footer {
+  text-align: center;
+  color: #aaa;
+  font-size: 14px;
+  padding: 32px 0 16px 0;
+  border-top: 1px solid #eee;
+  margin-top: 48px;
+}

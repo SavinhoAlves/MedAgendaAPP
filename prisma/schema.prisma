@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model agendamentos {
+  id              Int                 @id @default(autoincrement())
+  profissional_id Int
+  paciente_id     Int
+  data_hora       DateTime            @db.DateTime(0)
+  status          agendamentos_status @default(agendado)
+  observacoes     String?             @db.Text
+  criado_em       DateTime?           @default(now()) @db.Timestamp(0)
+  atualizado_em   DateTime?           @default(now()) @db.Timestamp(0)
+  profissionais   profissionais       @relation(fields: [profissional_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "agendamentos_ibfk_1")
+  pacientes       pacientes           @relation(fields: [paciente_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "agendamentos_ibfk_2")
+
+  @@index([paciente_id], map: "paciente_id")
+  @@index([profissional_id], map: "profissional_id")
+}
+
+model enderecos {
+  id          Int       @id @default(autoincrement())
+  paciente_id Int
+  rua         String?   @db.VarChar(150)
+  numero      String?   @db.VarChar(10)
+  complemento String?   @db.VarChar(100)
+  bairro      String?   @db.VarChar(100)
+  cidade      String?   @db.VarChar(100)
+  uf          String?   @db.VarChar(2)
+  cep         String?   @db.VarChar(10)
+  paciente    pacientes @relation(fields: [paciente_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "enderecos_ibfk_1")
+
+  @@index([paciente_id], map: "paciente_id")
+}
+
+model especialidades {
+  id          Int        @id @default(autoincrement())
+  nome        String     @unique @db.VarChar(100)
+
+  profissional_especialidade profissional_especialidade[]
+}
+
+model logs_acesso {
+  id         Int       @id @default(autoincrement())
+  usuario_id Int
+  acao       String    @db.VarChar(255)
+  data_hora  DateTime? @default(now()) @db.Timestamp(0)
+  usuarios   usuarios  @relation(fields: [usuario_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "logs_acesso_ibfk_1")
+
+  @@index([usuario_id], map: "usuario_id")
+}
+
+model pacientes {
+  id              Int       @id @default(autoincrement())
+  nome            String    @db.VarChar(150)
+  data_nascimento DateTime? @db.Date
+  telefone        String?   @db.VarChar(30)
+  email           String?   @db.VarChar(150)
+
+  rua             String?   @db.VarChar(255)
+  numero          String?   @db.VarChar(10)
+  complemento     String?   @db.VarChar(50)
+  bairro          String?   @db.VarChar(100)
+  cidade          String?   @db.VarChar(100)
+  uf              String?   @db.Char(2)
+  cep             String?   @db.VarChar(10)
+
+  criado_em       DateTime? @default(now()) @db.Timestamp(0)
+  atualizado_em   DateTime? @updatedAt @db.Timestamp(0)
+
+  agendamentos    agendamentos[]
+  enderecos       enderecos[]  // <-- Aqui a relação inversa
+}
+
+model profissionais {
+  id                         Int                          @id @default(autoincrement())
+  nome                       String                       @db.VarChar(150)
+  sexo                       Sexo?                        @map("Sexo") // ← novo campo
+  email                      String?                      @db.VarChar(255)
+  usuario_id                 Int
+  tipo_conselho              String?                      @db.VarChar(50)
+  telefone                   String?                      @db.VarChar(30)
+  status                     String?                      @db.VarChar(255)
+  criado_em                  DateTime?                    @default(now()) @db.Timestamp(0)
+  atualizado_em              DateTime?                    @db.DateTime(0)
+  dias_atendimento           String?                      @db.VarChar(100)
+  numero_conselho            String?                      @db.VarChar(50)
+
+  // NOVOS CAMPOS
+  horario_inicio             String?                      @db.VarChar(5)
+  horario_fim                String?                      @db.VarChar(5)
+  intervalo_minutos          Int?
+  hora_extra_inicio          String?                      @db.VarChar(5)
+  hora_extra_fim             String?                      @db.VarChar(5)
+  intervalo_extra            Int?
+
+  agendamentos               agendamentos[]
+  agendas                    agendas[]
+  usuarios                   usuarios                     @relation(fields: [usuario_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "profissionais_ibfk_1")
+  profissional_especialidade profissional_especialidade[]
+
+  @@index([usuario_id], map: "usuario_id")
+}
+
+model usuarios {
+  id            Int             @id @default(autoincrement())
+  nome          String          @db.VarChar(150)
+  email         String          @unique(map: "email") @db.VarChar(150)
+  senha_hash    String          @db.VarChar(255)
+  tipo          usuarios_tipo
+  criado_em     DateTime?       @default(now()) @db.Timestamp(0)
+  atualizado_em DateTime?       @default(now()) @db.Timestamp(0)
+  logs_acesso   logs_acesso[]
+  profissionais profissionais[]
+}
+
+model agendas {
+  id              Int           @id @default(autoincrement())
+  profissional_id Int
+  data            DateTime      @db.DateTime(0)
+  cliente_nome    String?       @db.VarChar(100)
+  descricao       String?       @db.Text
+  criado_em       DateTime?     @default(now()) @db.Timestamp(0)
+  atualizado_em   DateTime?     @default(now()) @db.Timestamp(0)
+  profissionais   profissionais @relation(fields: [profissional_id], references: [id], onDelete: Cascade, map: "fk_profissional")
+
+  @@index([profissional_id], map: "fk_profissional")
+}
+
+model profissional_especialidade {
+  profissional_id   Int
+  especialidade_id  Int
+
+  profissionais     profissionais     @relation(fields: [profissional_id], references: [id])
+  especialidades    especialidades    @relation(fields: [especialidade_id], references: [id])
+
+  @@id([profissional_id, especialidade_id])
+}
+
+enum agendamentos_status {
+  agendado
+  confirmado
+  cancelado
+  realizado
+}
+
+enum usuarios_tipo {
+  admin
+  colaborador
+}
+
+enum Sexo {
+  M
+  F
+}
+
