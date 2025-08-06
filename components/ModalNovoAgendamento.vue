@@ -38,9 +38,9 @@
           />
         </div>
 
-        <!-- Etapa 1: Selecionar Data em formato de calendário -->
+         <!-- Etapa 1: Selecionar Data em formato de calendário -->
         <div v-else-if="etapaAtual === 1">
-          <label for="data" class="block mb-2 text-sm font-medium text-gray-700">Selecione a data:</label>
+          <label for="data" class="block mb-2 text-sm font-medium text-gray-700">Selecione as datas de atendimento:</label>
 
           <!-- Navegação do mês -->
           <div class="flex justify-between items-center mb-2">
@@ -57,19 +57,18 @@
           </div>
 
           <!-- Dias do mês -->
-          <div class="grid grid-cols-7 gap-1 text-center text-sm">
+          <div class="grid grid-cols-7 gap-2">
             <div
-              v-for="(info, index) in diasDoMes"
-              :key="index"
-              class="p-2 rounded cursor-pointer"
+              v-for="(dia, idx) in diasDoMes"
+              :key="idx"
+              @click="dia.selecionavel && toggleDiaSelecionado(dia.data!)"
               :class="[
-                info.selecionavel
-                  ? (info.data && diasSelecionados.includes(info.data) ? 'bg-blue-600 text-white' : 'hover:bg-blue-100')
-                  : 'text-gray-400 cursor-not-allowed'
+                'text-center py-2 rounded cursor-pointer border',
+                dia.selecionavel ? 'hover:bg-green-100 bg-green-500 text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed',
+                diasSelecionados.includes(dia.data!) ? 'ring ring-green-600 ring-offset-1' : ''
               ]"
-             @click="info.selecionavel && info.data && toggleDiaSelecionado(info.data)"
             >
-              {{ info.dia ?? '' }}
+              {{ dia.dia }}
             </div>
           </div>
         </div>
@@ -195,6 +194,36 @@ type DiaAbreviado = keyof typeof mapaDias
 
 const hoje = new Date()
 const mesVisivel = ref(new Date(hoje.getFullYear(), hoje.getMonth(), 1))
+
+// Simulação: dias que o profissional atende (0 = domingo, 1 = segunda, etc.)
+const diasDisponiveis = ref<number[]>([]) // vindo da API
+
+// Dia selecionado pelo usuário
+const diaSelecionado = ref<number | null>(null)
+
+// Atualiza dias disponíveis com base no profissional
+watch(
+  () => profissionalSelecionado,
+  (novoProfissional) => {
+    if (
+      novoProfissional &&
+      typeof novoProfissional === 'object' &&
+      Array.isArray((novoProfissional as any).diasDisponiveis)
+    ) {
+      // Exemplo: novoProfissional.diasDisponiveis = [1, 3, 5]
+      diasDisponiveis.value = (novoProfissional as any).diasDisponiveis ?? []
+    } else {
+    diasDisponiveis.value = []
+    }
+  },
+  { immediate: true }
+)
+
+function selecionarDia(index: number) {
+  if (diasDisponiveis.value.includes(index)) {
+    diaSelecionado.value = index
+  }
+}
 
 const route = useRoute()
 
