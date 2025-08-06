@@ -8,12 +8,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'ID da agenda inválido.' })
   }
 
-  const body = await readBody<{
-    profissional_id?: number
-    data?: string
-    cliente_nome?: string
-    descricao?: string
-  }>(event)
+  let body
+  try {
+    body = await readBody<{
+      profissional_id?: number
+      data?: string
+      cliente_nome?: string
+      descricao?: string
+    }>(event)
+  } catch (err) {
+    throw createError({ statusCode: 400, message: 'Corpo da requisição inválido ou ausente.' })
+  }
 
   const { profissional_id, data, cliente_nome, descricao } = body
 
@@ -25,7 +30,6 @@ export default defineEventHandler(async (event) => {
 
   const atualizado_em = new Date().toISOString().slice(0, 19).replace('T', ' ')
 
-  // Montar a query dinamicamente com base nos campos recebidos
   const campos: string[] = []
   const valores: any[] = []
 
@@ -54,10 +58,15 @@ export default defineEventHandler(async (event) => {
 
   valores.push(id)
 
-  await db.query(
-    `UPDATE agendas SET ${campos.join(', ')} WHERE id = ?`,
-    valores
-  )
+  try {
+    const [result] = await db.query(
+      `UPDATE agendas SET ${campos.join(', ')} WHERE id = ?`,
+      valores
+    )
 
-  return { success: true, message: 'Agenda atualizada com sucesso.' }
+    return { success: true, message: 'Agenda atualizada com sucesso.' }
+  } catch (error) {
+    console.error('Erro ao atualizar agenda:', error)
+    throw createError({ statusCode: 500, message: 'Erro ao atualizar a agenda no banco de dados.' })
+  }
 })

@@ -15,12 +15,13 @@
       <div class="flex gap-2 items-center">
         <input
           type="month"
+          id="filtroMes"
           class="border rounded px-2 py-1 text-sm"
           v-model="filtroMes"
           @change="carregarAgendamentosPorFiltro"
         />
         <button
-          @click="mostrarModalAgendamento = true"
+          @click="modalAberto = true"
           class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Novo Agendamento
@@ -29,10 +30,11 @@
     </div>
 
     <!-- Divisor -->
-      <div class="border-t border-gray-200 mb-8"></div>
+    <div class="border-t border-gray-200 mb-8"></div>
 
     <!-- Lista de agendamentos -->
     <div class="grid gap-4">
+      <!-- Se houver agendamentos -->
       <div
         v-for="agendamento in agendamentos"
         :key="agendamento.id"
@@ -48,16 +50,29 @@
           📝 {{ agendamento.observacoes }}
         </div>
       </div>
+
+      <!-- Se NÃO houver agendamentos -->
+      <div
+        v-if="agendamentos.length === 0"
+        class="text-center text-gray-500 text-sm py-10"
+      >
+        Nenhum agendamento para esta agenda.
+      </div>
     </div>
   </div>
 
-  <!-- Modais -->
+  <!-- Modal Novo Agendamento -->
   <ModalNovoAgendamento
-    v-if="mostrarModalAgendamento"
-    :profissional-id="route.params.id"
-    @close="mostrarModalAgendamento = false"
-    @agendamentoCriado="carregarAgendamentosPorFiltro"
+    :isOpen="modalAberto"
+    :diasAtendimento="diasArray"
+    :profissionalSelecionado="profissionalSelecionado"
+    :profissionalId="profissionalSelecionado?.id ?? null"
+    @close="modalAberto = false"
+    @dataSelecionada="handleDataSelecionada"
   />
+
+
+  <!-- Modal Cadastro do Paciente -->
   <ModalCadastroPaciente
     v-if="mostrarModalCadastroPaciente"
     @close="mostrarModalCadastroPaciente = false"
@@ -95,9 +110,20 @@ const toast = useToast()
 
 const agendamentos = ref<Agendamento[]>([])
 const nomeProfissional = ref('')
-const mostrarModalAgendamento = ref(false)
+const modalAberto = ref(false)
 const mostrarModalCadastroPaciente = ref(false)
 const pacienteSelecionado = ref<{ id: number; nome: string } | null>(null)
+const profissionalSelecionado = ref<{
+  id: number
+  nome: string
+  dias_atendimento: string[]
+  horario_inicio: string
+  horario_fim: string
+  intervalo_minutos: number
+} | undefined>(undefined)
+
+// Computed property para dias de atendimento no formato esperado pelo modal
+const diasArray = computed(() => profissionalSelecionado.value?.dias_atendimento ?? [])
 
 const filtroMes = ref(new Date().toISOString().slice(0, 7)) // yyyy-MM
 
@@ -113,13 +139,48 @@ onMounted(() => {
   carregarAgendamentosPorFiltro()
 })
 
+// Função para lidar com o evento de data selecionada no ModalNovoAgendamento
+function handleDataSelecionada(data: any) {
+  // Você pode implementar ações ao selecionar data, por exemplo, recarregar lista
+  carregarAgendamentosPorFiltro()
+}
+
 async function carregarAgendamentosPorFiltro() {
   try {
     const idProfissional = route.params.id
-    const res = await $fetch<Response>(`/api/agendamentos/${idProfissional}?mes=${filtroMes.value}`)
 
+    // 1. Buscar agendamentos filtrados por mês
+    const res = await $fetch<Response>(`/api/agendamentos/${idProfissional}?mes=${filtroMes.value}`)
     agendamentos.value = res.agendamentos
     nomeProfissional.value = res.nome_profissional
+
+    // 2. Buscar dados reais do profissional
+    interface Profissional {
+      id: number;
+      nome: string;
+      dias_atendimento: string[] | string;
+      horario_inicio: string;
+      horario_fim: string;
+      intervalo_minutos: number;
+    }
+    const profissional = await $fetch<Profissional>(`/api/profissionais/${idProfissional}`)
+
+    // 3. Ajustar dias de atendimento para array de strings
+    profissionalSelecionado.value = {
+      id: profissional.id,
+      nome: profissional.nome,
+      dias_atendimento: Array.isArray(profissional.dias_atendimento)
+        ? profissional.dias_atendimento
+        : typeof profissional.dias_atendimento === 'string'
+          ? profissional.dias_atendimento.split(',').map(d => d.trim()).filter(Boolean)
+          : [],
+      horario_inicio: profissional.horario_inicio,
+      horario_fim: profissional.horario_fim,
+      intervalo_minutos: profissional.intervalo_minutos
+    }
+
+    toast.success('Agendamentos carregados com sucesso!')
+
   } catch (error) {
     toast.error('Erro ao carregar agendamentos.')
     console.error(error)

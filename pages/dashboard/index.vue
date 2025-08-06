@@ -91,11 +91,11 @@
           class="p-4 bg-white shadow rounded-lg hover:border-blue-600"
         >
           <h3 class="text-lg font-bold flex items-center mb-1"><UserIcon class="h-5 w-5 mr-1 text-blue-600" />{{ agenda.nome_profissional || agenda.nome }}</h3>
-          <p class="text-sm text-gray-600 font-semibold bg-gray-200 rounded-xl w-28 text-center px-2 mb-3">{{ agenda.area || 'Sem especialidade' }}</p>
-          <p class="text-sm flex text-gray-400 mb-2"><ClockIcon class="h-5 w-5 mr-2" /><span class="font-bold mr-2">Hora:</span> {{ agenda.horario_inicio ? `${agenda.horario_inicio} às ${agenda.horario_fim}` : 'Não informado' }}</p>
-          <p class="text-sm flex text-gray-400 mb-2"><CalendarIcon class="h-5 w-5 mr-2" /><span class="font-bold mr-2">Atende:</span> {{ abreviarDias(agenda.dias_atendimento || agenda.dias_atendimento) }}</p>
-          <p class="text-sm flex text-gray-400 mb-2"><BookmarkIcon class="h-5 w-5 mr-2" /> {{ agenda.total_agendamentos }} agendamentos</p>
-          <p class="text-sm flex text-gray-400 mb-2"><ClipboardIcon class="h-5 w-5 mr-2" /> {{ agenda.agendamentos_hoje }} consulta(s) hoje</p>
+          <p class="text-sm text-gray-600 font-regular bg-blue-100 rounded-xl w-28 text-center px-2 mb-3">{{ agenda.area || 'Sem especialidade' }}</p>
+          <p class="text-sm flex mb-2"><ClockIcon class="h-5 w-5 mr-2 text-gray-400" /><span class="font-bold mr-2">Hora:</span> {{ agenda.horario_inicio ? `${agenda.horario_inicio} às ${agenda.horario_fim}` : 'Não informado' }}</p>
+          <p class="text-sm flex mb-2"><CalendarIcon class="h-5 w-5 mr-2 text-gray-400" /><span class="font-bold mr-2">Atende:</span> {{ abreviarDias(agenda.dias_atendimento || agenda.dias_atendimento) }}</p>
+          <p class="text-sm flex text-black mb-2"><BookmarkIcon class="h-5 w-5 mr-2 text-gray-400" /> <span class="font-semibold mr-2">{{ agenda.total_agendamentos }}</span> agendamentos</p>
+          <p class="text-sm flex mb-2"><ClipboardIcon class="h-5 w-5 mr-2 text-gray-400" /> <span class="font-semibold mr-2">{{ agenda.agendamentos_hoje }}</span> consulta(s) hoje</p>
           <NuxtLink
             :to="`/agendas/${agenda.id}`"
             class="bg-blue-600 py-2 px-6 w-52 rounded-lg text-white mt-1 hover:bg-blue-900 transition-all block text-center"

@@ -35,16 +35,22 @@ export default defineEventHandler(async (event) => {
       ORDER BY a.data_hora ASC
     `, [profissionalId, primeiroDia, ultimoDia])
 
-    const [[prof]] = await db.query<any[]>(`
+    const [profResults] = await db.query<any[]>(`
       SELECT 
-        CASE 
-          WHEN sexo = 'M' THEN CONCAT('Dr. ', nome)
-          WHEN sexo = 'F' THEN CONCAT('Dra. ', nome)
-          ELSE nome
-        END AS nome
-      FROM profissionais 
-      WHERE id = ?
+      CASE 
+        WHEN sexo = 'M' THEN CONCAT('Dr. ', nome)
+        WHEN sexo = 'F' THEN CONCAT('Dra. ', nome)
+        ELSE nome
+      END AS nome,
+      dias_atendimento,
+      horario_inicio,
+      horario_fim,
+      intervalo_minutos
+    FROM profissionais 
+    WHERE id = ?
     `, [profissionalId])
+
+    const prof = profResults[0]
 
     return {
       agendamentos: rows,

@@ -1,5 +1,7 @@
 <template>
-  <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+  <div
+  v-if="isOpen" 
+  class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-lg w-full max-w-2xl">
       <!-- Cabeçalho -->
       <div class="flex justify-between items-center p-4 border-b">
@@ -26,28 +28,49 @@
 
         <!-- Etapa 0: Profissional -->
         <div v-if="etapaAtual === 0">
-          <label class="block mb-2 text-sm">Profissional:</label>
-          <input type="text" :value="profissionalSelecionado?.nome" disabled class="w-full border p-2 rounded" />
+          <label for="profissional" class="block mb-2 text-sm">Profissional:</label>
+          <input
+            id="profissional"
+            type="text"
+            :value="$props.profissionalSelecionado?.nome ?? ''"
+            disabled
+            class="w-full border p-2 rounded text-gray-500 cursor-not-allowed"
+          />
         </div>
 
-        <!-- Etapa 1: Dias da semana -->
+        <!-- Etapa 1: Selecionar Data em formato de calendário -->
         <div v-else-if="etapaAtual === 1">
-          <label class="block mb-2 text-sm font-medium text-gray-700">Dias de atendimento:</label>
-          <div class="flex flex-wrap gap-4">
-            <button
-              v-for="dia in diasSemana"
-              :key="dia"
-              type="button"
+          <label for="data" class="block mb-2 text-sm font-medium text-gray-700">Selecione a data:</label>
+
+          <!-- Navegação do mês -->
+          <div class="flex justify-between items-center mb-2">
+            <button @click="mudarMes(-1)" class="text-blue-600"><chevron-left-icon class="w-5 h-5" /></button>
+            <div class="font-semibold">
+              {{ nomeMesAno(mesVisivel) }}
+            </div>
+            <button @click="mudarMes(1)" class="text-blue-600"><chevron-right-icon class="w-5 h-5" /></button>
+          </div>
+
+          <!-- Cabeçalho dos dias da semana -->
+          <div class="grid grid-cols-7 text-center text-sm font-medium text-gray-600 mb-1">
+            <div v-for="dia in diasSemana" :key="dia">{{ dia }}</div>
+          </div>
+
+          <!-- Dias do mês -->
+          <div class="grid grid-cols-7 gap-1 text-center text-sm">
+            <div
+              v-for="(info, index) in diasDoMes"
+              :key="index"
+              class="p-2 rounded cursor-pointer"
               :class="[
-                'px-4 py-2 rounded border',
-                diasSelecionados.includes(dia)
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300'
+                info.selecionavel
+                  ? (info.data && diasSelecionados.includes(info.data) ? 'bg-blue-600 text-white' : 'hover:bg-blue-100')
+                  : 'text-gray-400 cursor-not-allowed'
               ]"
-              @click="toggleDia(dia)"
+             @click="info.selecionavel && info.data && toggleDiaSelecionado(info.data)"
             >
-              {{ dia }}
-            </button>
+              {{ info.dia ?? '' }}
+            </div>
           </div>
         </div>
 
@@ -127,7 +150,7 @@
         </button>
 
         <div>
-          <button class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600 mr-4"  @click="abrirCadastroPaciente">
+          <button class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600 mr-4"  @click="onAbrirCadastroPaciente">
             Cadastrar Paciente
           </button>
           <button class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600" @click="proximaEtapa">
@@ -141,81 +164,112 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline';
 
-// Etapas do formulário
+const { isOpen, profissionalSelecionado } = defineProps<{
+  isOpen: boolean
+  profissionalSelecionado: { nome: string; id: number } | undefined
+}>()
+
+const emit = defineEmits(['abrirCadastroPaciente', 'close'])
+
 const etapaAtual = ref(0)
 const etapas = ['Profissional', 'Dias', 'Horário', 'Dados do Paciente']
-
-// Estado dos campos
 const profissionais = ref<any[]>([])
 const profissionalId = ref<number | null>(null)
-const profissionalSelecionado = ref<any>(null)
 const diasSelecionados = ref<string[]>([])
 const horarioSelecionado = ref<string | null>(null)
 const pacienteNome = ref('')
 const pacienteTelefone = ref('')
 const pacienteEmail = ref('')
 const sugestoesPacientes = ref<any[]>([])
-const emit = defineEmits(['abrirCadastroPaciente', 'close'])
+const horariosDisponiveis = ref<string[]>([])
+const diasAtendimento = ref<string[]>([])
+const observacoes = ref('')
 
-// Dias da semana e mapeamento
-const diasSemana = ['Seg', 'Ter', 'Quar', 'Qui', 'Sex', 'Sáb', 'Dom']
-const mapaDias = {
-  Dom: 0,
-  Seg: 1,
-  Ter: 2,
-  Quar: 3,
-  Qui: 4,
-  Sex: 5,
-  Sáb: 6
-} as const
+const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+const mapaDias = { Dom: 0, Seg: 1, Ter: 2, Quar: 3, Qui: 4, Sex: 5, Sáb: 6 } as const
 type DiaAbreviado = keyof typeof mapaDias
 
-type Profissional = {
-  id: number
-  nome: string
-  dias: string[]
-  horario_inicio: string
-  horario_fim: string
-  intervalo_minutos: number
-}
+const hoje = new Date()
+const mesVisivel = ref(new Date(hoje.getFullYear(), hoje.getMonth(), 1))
 
-const horariosDisponiveis = ref<string[]>([])
-
-// Rota para pegar id inicial do profissional
 const route = useRoute()
 
-// Inicializa profissionalId com parâmetro da rota query ?profissional_id=2
-onMounted(async () => {
-  try {
-    profissionais.value = await $fetch('/api/profissionais')
+const diasDoMes = computed(() => {
+  const ano = mesVisivel.value.getFullYear()
+  const mes = mesVisivel.value.getMonth()
+  const primeiroDia = new Date(ano, mes, 1)
+  const ultimoDia = new Date(ano, mes + 1, 0)
+  const dias: { dia: number | null, data: string | null, selecionavel: boolean }[] = []
 
-    const profissionalIdQuery = route.query.profissional_id
-    if (typeof profissionalIdQuery === 'string') {
-      profissionalId.value = parseInt(profissionalIdQuery)
-      profissionalSelecionado.value = profissionais.value.find(p => p.id === profissionalId.value) || null
-    }
-
-    if (profissionalId.value !== null) {
-      await carregarDiasProfissional()
-      gerarHorariosDisponiveis()
-    }
-  } catch (error) {
-    console.error('Erro ao carregar profissionais:', error)
+  const offset = primeiroDia.getDay()
+  for (let i = 0; i < offset; i++) {
+    dias.push({ dia: null, data: null, selecionavel: false })
   }
+
+  for (let d = 1; d <= ultimoDia.getDate(); d++) {
+    const data = new Date(ano, mes, d)
+    const diaSemanaAbrev = diasSemana[data.getDay()]
+    const selecionavel = diasAtendimento.value.includes(diaSemanaAbrev)
+    const dataFormatada = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+
+    dias.push({
+      dia: d,
+      data: dataFormatada,
+      selecionavel
+    })
+  }
+
+  return dias
 })
 
-// Atualiza dias e horários ao mudar profissional
-watch(profissionalId, async (novoId, antigoId) => {
-  if (novoId !== antigoId && novoId !== null) {
-    await carregarDiasProfissional()
-    gerarHorariosDisponiveis()
-  }
-})
+function nomeMesAno(date: Date) {
+  return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+}
 
-// Carrega o nome dos pacientes de acordo com a pesquisa do nome do mesmo
+function mudarMes(delta: number) {
+  const ano = mesVisivel.value.getFullYear()
+  const mes = mesVisivel.value.getMonth()
+  mesVisivel.value = new Date(ano, mes + delta, 1)
+}
+
+function toggleDiaSelecionado(data: string) {
+  if (diasSelecionados.value.includes(data)) {
+    diasSelecionados.value = diasSelecionados.value.filter(d => d !== data)
+  } else {
+    diasSelecionados.value.push(data)
+  }
+}
+
+function selecionarHorario(hora: string) {
+  if (horarioSelecionado.value === hora) {
+    horarioSelecionado.value = null
+  } else {
+    horarioSelecionado.value = hora
+  }
+}
+
+function proximaEtapa() {
+  if (etapaAtual.value === 0 && profissionalId.value === null) return
+  if (etapaAtual.value === 1 && diasSelecionados.value.length === 0) return
+  if (etapaAtual.value === 2 && !horarioSelecionado.value) return
+
+  if (etapaAtual.value < etapas.length - 1) {
+    etapaAtual.value++
+  } else {
+    salvarAgendamento()
+  }
+}
+
+function voltarEtapa() {
+  if (etapaAtual.value > 0) {
+    etapaAtual.value--
+  }
+}
+
 async function buscarPacientes() {
   if (pacienteNome.value.length < 3) {
     sugestoesPacientes.value = []
@@ -227,18 +281,16 @@ async function buscarPacientes() {
     sugestoesPacientes.value = resultados
   } catch (error) {
     console.error('Erro ao buscar pacientes:', error)
-    sugestoesPacientes.value = []
   }
 }
 
-function selecionarPaciente(paciente: any) {
-  pacienteNome.value = paciente.nome
-  pacienteTelefone.value = paciente.telefone
-  pacienteEmail.value = paciente.email
+function selecionarPaciente(p: any) {
+  pacienteNome.value = p.nome
+  pacienteTelefone.value = p.telefone
+  pacienteEmail.value = p.email
   sugestoesPacientes.value = []
 }
 
-// Carrega os dias da semana do profissional
 async function carregarDiasProfissional() {
   if (profissionalId.value === null) return
 
@@ -255,90 +307,48 @@ async function carregarDiasProfissional() {
     'Sábado': 'Sáb'
   }
 
-  diasSelecionados.value = profissional.dias
+  const dias = (profissional.dias_atendimento || [])
     .map((dia: string) => mapDiaCompletoParaAbreviado[dia.trim()])
     .filter(Boolean)
+
+  diasAtendimento.value = dias
+  gerarHorariosDisponiveis()
 }
 
-// Gera os horários com base no horário de atendimento e intervalo
 function gerarHorariosDisponiveis() {
   if (profissionalId.value === null) return
 
   const profissional = profissionais.value.find(p => p.id === profissionalId.value)
-  if (!profissional || !profissional.horario_inicio || !profissional.horario_fim || !profissional.intervalo_minutos) {
-    console.warn('Horários incompletos:', profissional)
-    horariosDisponiveis.value = []
-    return
-  }
+  if (!profissional) return
 
-  const inicio = profissional.horario_inicio
-  const fim = profissional.horario_fim
-  const intervalo = parseInt(profissional.intervalo_minutos)
+  const { horario_inicio, horario_fim, intervalo_minutos } = profissional
+
+  let [h, m] = horario_inicio.split(':').map(Number)
+  const [hf, mf] = horario_fim.split(':').map(Number)
 
   const horarios: string[] = []
-  let [hora, minuto] = inicio.split(':').map(Number)
-  const [horaFim, minutoFim] = fim.split(':').map(Number)
 
-  while (hora < horaFim || (hora === horaFim && minuto <= minutoFim)) {
-    const h = hora.toString().padStart(2, '0')
-    const m = minuto.toString().padStart(2, '0')
-    horarios.push(`${h}:${m}`)
-
-    minuto += intervalo
-    if (minuto >= 60) {
-      hora += 1
-      minuto -= 60
+  while (h < hf || (h === hf && m < mf)) {
+    horarios.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+    m += intervalo_minutos
+    if (m >= 60) {
+      h++
+      m -= 60
     }
   }
 
   horariosDisponiveis.value = horarios
-  console.log('Horários disponíveis:', horarios)
 }
 
-// Marcar ou desmarcar dias
-function toggleDia(dia: string) {
-  if (diasSelecionados.value.includes(dia)) {
-    diasSelecionados.value = diasSelecionados.value.filter(d => d !== dia)
-  } else {
-    diasSelecionados.value.push(dia)
-  }
-}
-
-// Seleciona horário, desabilitando os demais
-function selecionarHorario(hora: string) {
-  if (horarioSelecionado.value === hora) {
-    horarioSelecionado.value = null
-  } else if (!horarioSelecionado.value) {
-    horarioSelecionado.value = hora
-  }
-}
-
-// Controle de etapas com validação simples
-function proximaEtapa() {
-  if (etapaAtual.value === 0 && profissionalId.value === null) return
-  if (etapaAtual.value === 1 && diasSelecionados.value.length === 0) return
-  if (etapaAtual.value === 2 && !horarioSelecionado.value) return
-
-  if (etapaAtual.value < etapas.length - 1) {
-    etapaAtual.value++
-  } else {
-    salvarAgendamento()
-  }
-}
-
-// Salva agendamento no backend
 async function salvarAgendamento() {
   try {
-    if (profissionalId.value === null || !horarioSelecionado.value) return
-
-    const primeiroDia = diasSelecionados.value[0] as DiaAbreviado
-    const dataCompleta = formatarDataMySQL(primeiroDia, horarioSelecionado.value)
+    const dataHora = `${diasSelecionados.value[0]} ${horarioSelecionado.value}:00`
 
     await $fetch('/api/agendamentos', {
       method: 'POST',
       body: {
         profissional_id: profissionalId.value,
-        data_hora: dataCompleta,
+        data_hora: dataHora,
         paciente_nome: pacienteNome.value,
         paciente_telefone: pacienteTelefone.value,
         paciente_email: pacienteEmail.value,
@@ -346,7 +356,6 @@ async function salvarAgendamento() {
       }
     })
 
-    // Limpar formulário após salvar
     etapaAtual.value = 0
     profissionalId.value = null
     diasSelecionados.value = []
@@ -355,36 +364,35 @@ async function salvarAgendamento() {
     pacienteTelefone.value = ''
     pacienteEmail.value = ''
 
-    // Emitir evento para fechar modal (se desejar)
-    // $emit('saved')
-
+    emit('close')
   } catch (error) {
     console.error('Erro ao salvar agendamento:', error)
   }
 }
 
-// Gera string data+hora formato MySQL para o próximo dia da semana selecionado
-function formatarDataMySQL(diaSemana: DiaAbreviado, horario: string): string {
-  const hoje = new Date()
-  const diaAlvo = mapaDias[diaSemana]
-  const diff = (diaAlvo + 7 - hoje.getDay()) % 7 || 7
+watch(
+  () => profissionalSelecionado,
+  (novoProfissional) => {
+    profissionalId.value = novoProfissional && typeof novoProfissional === 'object' ? novoProfissional.id : null
+    if (profissionalId.value !== null) {
+      carregarDiasProfissional()
+    }
+  },
+  { immediate: true }
+)
 
-  const dataFinal = new Date()
-  dataFinal.setDate(hoje.getDate() + diff)
-
-  const dataStr = dataFinal.toISOString().split('T')[0]
-  return `${dataStr} ${horario}:00`
-}
-
-function abrirCadastroPaciente() {
-  emit('abrirCadastroPaciente')
-}
-
-
-// Voltar etapa
-function voltarEtapa() {
-  if (etapaAtual.value > 0) {
-    etapaAtual.value--
+onMounted(async () => {
+  try {
+    const resposta = await $fetch('/api/profissionais')
+    if (Array.isArray(resposta)) {
+      profissionais.value = resposta
+    } else {
+      profissionais.value = []
+      console.error('Erro ao buscar profissionais:', resposta?.mensagem || 'Resposta inesperada da API')
+    }
+  } catch (error) {
+    profissionais.value = []
+    console.error('Erro ao buscar profissionais:', error)
   }
-}
+})
 </script>
