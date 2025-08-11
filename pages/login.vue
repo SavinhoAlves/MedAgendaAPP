@@ -9,31 +9,54 @@ useHead({
   title: 'Login | MedAgendaAPP'
 })
 
+definePageMeta({
+  layout: 'blank'
+})
+
 const toast = useToast()
 const router = useRouter()
 
 const email = ref('')
 const password = ref('')
 
+const loading = ref(false)
 const login = async () => {
   if (!email.value || !password.value) {
     toast.error('Preencha todos os campos.')
     return
   }
 
-  const res = await $fetch('/api/auth/login', {
-    method: 'POST',
-    body: { email: email.value, password: password.value }
-  })
+  loading.value = true
 
-  if (!res.success) {
-    toast.error(res.message)
-    return
+  try {
+    const res = await $fetch('/api/auth/login', {
+      method: 'POST',
+      body: { email: email.value, password: password.value }
+    })
+
+    if (!res.success) {
+      toast.error(res.message)
+      return
+    }
+
+    toast.success(`Bem-vindo, ${res.usuario.nome}!`)
+    router.push('/dashboard')
+  } catch (err) {
+    toast.error('Erro ao tentar logar.')
+  } finally {
+    loading.value = false
   }
-
-  toast.success(`Bem-vindo, ${res.usuario.nome}!`)
-  router.push('/dashboard')
 }
+
+onMounted(async () => {
+  try {
+    const { user } = await $fetch('/api/auth/me')
+    if (user) {
+      router.push('/dashboard')
+    }
+  } catch {}
+})
+
 </script>
 
 <template>
@@ -81,9 +104,15 @@ const login = async () => {
           <a href="#" aria-label="Recuperar senha" class="hover:underline">Esqueceu sua senha?</a>
         </div>
 
-        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700">
-          Entrar
+        <button
+          :disabled="loading"
+          type="submit"
+          class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+        >
+          <span v-if="!loading">Entrar</span>
+          <span v-else>Entrando...</span>
         </button>
+
       </form>
     </div>
   </div>

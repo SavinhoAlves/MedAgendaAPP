@@ -1,39 +1,41 @@
-import { setCookie } from 'h3' // Importa utilitário para cookies
+import { defineEventHandler, readBody, setCookie } from 'h3'
 import { prisma } from '#imports'
+import bcrypt from 'bcryptjs'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const { email, password } = body
 
   if (!email || !password) {
-    return { success: false, message: 'E-mail e senha são obrigatórios' }
+    return { success: false, message: 'Email e senha são obrigatórios.' }
   }
 
-  const usuario = await prisma.usuarios.findUnique({
+  const user = await prisma.usuarios.findUnique({
     where: { email }
   })
 
-  if (!usuario) {
-    return { success: false, message: 'Usuário não encontrado' }
+  if (!user) {
+    return { success: false, message: 'Credenciais inválidas.' }
   }
 
-  if (password !== usuario.senha_hash) {
-    return { success: false, message: 'Senha incorreta' }
+  const senhaCorreta = await bcrypt.compare(password, user.senha_hash)
+
+  if (!senhaCorreta) {
+    return { success: false, message: 'Credenciais inválidas.' }
   }
 
-  // Cria um cookie simples com ID do usuário
-  setCookie(event, 'user_id', String(usuario.id), {
+  // Cria o cookie de sessão persistente
+  setCookie(event, 'user_id', String(user.id), {
     httpOnly: true,
     path: '/',
-    maxAge: 60 * 60 * 24 * 7 // 7 dias
+    maxAge: 60 * 60 * 24 * 7, // 7 dias
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production'
   })
 
   return {
     success: true,
-    usuario: {
-      id: usuario.id,
-      nome: usuario.nome,
-      tipo: usuario.tipo,
-    }
+    message: `Bem-vindo, ${user.nome}!`,
+    usuario: { id: user.id, nome: user.nome, tipo: user.tipo }
   }
 })
